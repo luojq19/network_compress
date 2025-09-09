@@ -141,20 +141,30 @@ print(f'Found {len(interactome_list)} interactomes.')
 print(interactome_list[:5])
 threshold = 1000
 repeats = 50
-for interactome in tqdm(interactome_list):
-    # print(f'Processing {interactome}...')
-    data = np.load(os.path.join(data_dir, f'{interactome}.npz'))
-    adj = data['adj']
-    nodes = np.loadtxt(os.path.join(node_dir, f'{interactome}_nodes.txt'), dtype=str)
-    if len(adj) <= threshold:
-        np.savez_compressed(os.path.join(save_data_dir, f'{interactome}_0.npz'), adj=adj)
-        np.savetxt(os.path.join(save_node_dir, f'{interactome}_0.txt'), nodes, fmt='%s')
-    else:
-        for i in range(50):
-            try:
-                submatrix, subnode_indices = random_walk_subgraph(adj, threshold, seed=i)
-                subnodes = nodes[subnode_indices]
-                np.savez_compressed(os.path.join(save_data_dir, f'{interactome}_{i}.npz'), adj=submatrix)
-                np.savetxt(os.path.join(save_node_dir, f'{interactome}_{i}_nodes.txt'), subnodes, fmt='%s')
-            except Exception as e:
-                print(f"Error processing {interactome}_{i}: {e}")
+# for interactome in tqdm(interactome_list):
+#     # print(f'Processing {interactome}...')
+#     data = np.load(os.path.join(data_dir, f'{interactome}.npz'))
+#     adj = data['adj']
+#     nodes = np.loadtxt(os.path.join(node_dir, f'{interactome}_nodes.txt'), dtype=str)
+#     if len(adj) <= threshold:
+#         np.savez_compressed(os.path.join(save_data_dir, f'{interactome}_0.npz'), adj=adj)
+#         np.savetxt(os.path.join(save_node_dir, f'{interactome}_0.txt'), nodes, fmt='%s')
+#     else:
+#         for i in range(50):
+#             try:
+#                 submatrix, subnode_indices = random_walk_subgraph(adj, threshold, seed=i)
+#                 subnodes = nodes[subnode_indices]
+#                 np.savez_compressed(os.path.join(save_data_dir, f'{interactome}_{i}.npz'), adj=submatrix)
+#                 np.savetxt(os.path.join(save_node_dir, f'{interactome}_{i}_nodes.txt'), subnodes, fmt='%s')
+#             except Exception as e:
+#                 print(f"Error processing {interactome}_{i}: {e}")
+interactome = '322710'
+i = 18
+data = np.load(os.path.join(data_dir, f'{interactome}.npz'))
+adj = data['adj']
+nodes = np.loadtxt(os.path.join(node_dir, f'{interactome}_nodes.txt'), dtype=str)
+submatrix, subnode_indices = random_walk_subgraph(adj, threshold, seed=i * 10)
+subnodes = nodes[subnode_indices]
+print(os.path.exists(os.path.join(save_data_dir, f'{interactome}_{i}.npz')))
+np.savez_compressed(os.path.join(save_data_dir, f'{interactome}_{i}.npz'), adj=submatrix)
+np.savetxt(os.path.join(save_node_dir, f'{interactome}_{i}_nodes.txt'), subnodes, fmt='%s')
