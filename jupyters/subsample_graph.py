@@ -95,7 +95,7 @@ def random_walk_subgraph(adj: np.ndarray, n: int, seed: int | None = None, start
     current = start
 
     # A loose cap to avoid pathological loops; practically, you'll hit n quickly.
-    max_steps = max(10_000, 50 * n)
+    max_steps = max(10_000, 500 * n)
     steps = 0
 
     while len(visited) < n:
@@ -142,6 +142,7 @@ print(interactome_list[:5])
 threshold = 1000
 repeats = 50
 for interactome in tqdm(interactome_list):
+    # print(f'Processing {interactome}...')
     data = np.load(os.path.join(data_dir, f'{interactome}.npz'))
     adj = data['adj']
     nodes = np.loadtxt(os.path.join(node_dir, f'{interactome}_nodes.txt'), dtype=str)
@@ -150,7 +151,10 @@ for interactome in tqdm(interactome_list):
         np.savetxt(os.path.join(save_node_dir, f'{interactome}_0.txt'), nodes, fmt='%s')
     else:
         for i in range(50):
-            submatrix, subnode_indices = random_walk_subgraph(adj, threshold, seed=i)
-            subnodes = nodes[subnode_indices]
-            np.savez_compressed(os.path.join(save_data_dir, f'{interactome}_{i}.npz'), adj=submatrix)
-            np.savetxt(os.path.join(save_node_dir, f'{interactome}_{i}_nodes.txt'), subnodes, fmt='%s')
+            try:
+                submatrix, subnode_indices = random_walk_subgraph(adj, threshold, seed=i)
+                subnodes = nodes[subnode_indices]
+                np.savez_compressed(os.path.join(save_data_dir, f'{interactome}_{i}.npz'), adj=submatrix)
+                np.savetxt(os.path.join(save_node_dir, f'{interactome}_{i}_nodes.txt'), subnodes, fmt='%s')
+            except Exception as e:
+                print(f"Error processing {interactome}_{i}: {e}")
