@@ -8,10 +8,10 @@ def remove_time_from_name(s):
     import re
     return re.sub(r'\d{4}_\d{2}_\d{2}__\d{2}_\d{2}_\d{2}_', '', s)
 
-root_dir = '../logs/logs_compressibility/heu_7'
+root_dir = '../logs/logs_compressibility/heu_5'
 dir_list = os.listdir(root_dir)
 print(len(dir_list))
-new_root_dir = '../logs/logs_compressibility/heu_7_no_time'
+new_root_dir = '../logs/logs_compressibility/heu_5_no_time_new'
 os.makedirs(new_root_dir, exist_ok=True)
 
 for item in tqdm(dir_list):
