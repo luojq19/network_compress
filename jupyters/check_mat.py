@@ -58,3 +58,17 @@ plt.xlabel("Index")
 plt.ylabel("Relative Difference")
 plt.show()
 # %%
+import numpy as np
+
+data = np.load('../logs/logs_interactomes.max_cc.rw1000/heu_5/rate_distortion_2025_09_09__19_47_33_1148_23/rates_upper.npy')
+print(data.shape)
+# print(data)
+# data is a 1D array, check if it is monitonically decreasing
+count = 0
+for i in range(1, len(data)):
+    if data[i] > data[i-1] + 0.0001:
+        print(f"Not monotonically decreasing at index {i}: {data[i-1]} - {data[i]} = {data[i-1] - data[i]}")
+        count += 1
+        # break
+print(f"Total violations found: {count}")
+# %%
