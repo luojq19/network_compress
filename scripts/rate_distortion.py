@@ -241,6 +241,7 @@ def get_args():
     parser.add_argument('--seed', type=int, default=42, help='Random seed')
     parser.add_argument('--logdir', type=str, default='logs/logs')
     parser.add_argument('--tag', type=str, default='')
+    parser.add_argument('--no_timestamp', action='store_true', help='If set, do not append timestamp to logdir')
 
     return parser.parse_args()
 
@@ -249,7 +250,7 @@ def main():
     args = get_args()
     commons.seed_all(args.seed)
 
-    log_dir = commons.get_new_log_dir(root=args.logdir, prefix='rate_distortion', tag=args.tag)
+    log_dir = commons.get_new_log_dir(root=args.logdir, prefix='rate_distortion', tag=args.tag, timestamp=not args.no_timestamp)
     logger = commons.get_logger('rate_distortion', log_dir=log_dir)
     logger.info(f'Args: {args}')
 
