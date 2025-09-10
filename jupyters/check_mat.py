@@ -60,15 +60,53 @@ plt.show()
 # %%
 import numpy as np
 
-data = np.load('../logs/logs_interactomes.max_cc.rw1000/heu_5/rate_distortion_2025_09_09__19_47_33_1148_23/rates_upper.npy')
+data = np.load('../logs/logs_interactomes.max_cc.rw1000/heu_5_no_time/rate_distortion_394_0/rates_upper.npy')
 print(data.shape)
 # print(data)
 # data is a 1D array, check if it is monitonically decreasing
 count = 0
 for i in range(1, len(data)):
-    if data[i] > data[i-1] + 0.0001:
+    if data[i] > data[i-1]:
         print(f"Not monotonically decreasing at index {i}: {data[i-1]} - {data[i]} = {data[i-1] - data[i]}")
         count += 1
         # break
 print(f"Total violations found: {count}")
+# %%
+import numpy as np
+
+data = np.load('../data/compressibility/graphs_Animal_samples_directed_G_wetlands_d_0.npz')['array']
+print(data.shape)
+# save data as .mat file
+from scipy.io import savemat
+savemat('wetlands_0.mat', {'adj': data})
+# %%
+from scipy.io import loadmat
+import numpy as np
+
+results = loadmat('394_0_results_heu7.mat')
+S = results['S'].squeeze()
+# reverse S
+S = S[::-1]
+data = np.load('../logs/logs_interactomes.max_cc.rw1000/heu_7_no_time/rate_distortion_394_0/rates_upper.npy')
+print(S.shape, data.shape)
+print(np.allclose(S, data))
+diff = np.abs(S - data)
+print(diff.max())
+count = 0
+for i in range(1, len(S)):
+    if S[i] > S[i-1]:
+        print(f"Not monotonically decreasing at index {i}: {S[i-1]} - {S[i]} = {S[i-1] - S[i]}")
+        count += 1
+        # break
+print(f"Total violations found: {count}")
+# plot the two curves
+import matplotlib.pyplot as plt
+
+plt.plot(S, label='S')
+plt.plot(data, label='Data')
+plt.legend()
+plt.show()
+
+# %%
+S[0], data[0]
 # %%
