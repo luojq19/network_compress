@@ -9,6 +9,9 @@ from utils import commons
 
 def worker(graph_path, heu):
     graph_name = os.path.basename(graph_path).replace('.npz', '')
+    if os.path.exists(f'logs/logs_interactomes.max_cc.rw2000/heu_{heu}/rate_distortion_{graph_name}/rates_upper.npy'):
+        print(f'Skipping {graph_name} with heu {heu} as it is already done.')
+        return
     command = f'''
         python scripts/rate_distortion.py \\
         --graph {graph_path} \\
