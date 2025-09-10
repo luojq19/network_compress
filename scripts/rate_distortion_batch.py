@@ -13,15 +13,16 @@ def worker(graph_path, heu):
         python scripts/rate_distortion.py \\
         --graph {graph_path} \\
         --heu {heu} \\
-        --logdir logs/logs_interactomes.max_cc.rw1000/heu_{heu} \\
-        --tag {graph_name}
+        --logdir logs/logs_interactomes.max_cc.rw2000/heu_{heu} \\
+        --tag {graph_name} \\
+        --no_timestamp
     '''
     # print(command)
     os.system(command)
 
 def main():
     start_overall = time.time()
-    data_dir = 'data/treeoflife.interactomes.max_cc.rw1000_adj'
+    data_dir = 'data/treeoflife.interactomes.max_cc.rw2000_adj'
     graphs = []
     for root, _, files in os.walk(data_dir):
         for file in files:
