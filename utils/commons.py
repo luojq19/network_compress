@@ -53,7 +53,7 @@ def get_new_log_dir(root='./logs', prefix='', tag='', timestamp=True):
     if tag != '':
         fn = fn + '_' + tag
     log_dir = os.path.join(root, fn)
-    os.makedirs(log_dir)
+    os.makedirs(log_dir, exist_ok=True)
     return log_dir
 
 # https://discuss.pytorch.org/t/reproducibility-with-all-the-bells-and-whistles/81097
