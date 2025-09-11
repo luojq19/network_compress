@@ -9,7 +9,7 @@ from utils import commons
 
 def worker(graph_path, heu):
     graph_name = os.path.basename(graph_path).replace('.npz', '')
-    if os.path.exists(f'logs/logs_interactomes.max_cc.rw2000/heu_{heu}/rate_distortion_{graph_name}/rates_upper.npy'):
+    if os.path.exists(f'logs/logs_interactomes.max_cc.rw2000/heu_{heu}/rate_distortion_{graph_name}/rates_upper.npy') or os.path.exists(f'logs/logs_interactomes.max_cc.rw2000/heu_{heu}/rate_distortion__{graph_name}/rates_upper.npy'):
         print(f'Skipping {graph_name} with heu {heu} as it is already done.')
         return
     command = f'''
@@ -32,7 +32,7 @@ def main():
             if file.endswith('.npz'):
                 graphs.append(os.path.join(root, file))
     random.shuffle(graphs)
-    num_workers = 20
+    num_workers = 16
     Parallel(n_jobs=num_workers, verbose=10)(delayed(worker)(graph, heu) for graph in tqdm(graphs, desc='Processing graphs') for heu in [5, 7])
     end_overall = time.time()
     print(f'Time elapsed: {commons.sec2hr_min_sec(end_overall - start_overall)}')
