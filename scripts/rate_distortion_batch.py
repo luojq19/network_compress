@@ -32,8 +32,8 @@ def main():
             if file.endswith('.npz'):
                 graphs.append(os.path.join(root, file))
     random.shuffle(graphs)
-    num_workers = 40
-    Parallel(n_jobs=num_workers, verbose=10)(delayed(worker)(graph, heu) for graph in tqdm(graphs) for heu in [5, 7])
+    num_workers = 20
+    Parallel(n_jobs=num_workers, verbose=10)(delayed(worker)(graph, heu) for graph in tqdm(graphs, desc='Processing graphs') for heu in [5, 7])
     end_overall = time.time()
     print(f'Time elapsed: {commons.sec2hr_min_sec(end_overall - start_overall)}')
 
