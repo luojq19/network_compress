@@ -165,3 +165,5 @@ data/
 logs*/
 cache/
 jupyters/tmp
+profile_output*.txt
+profile_output*.lprof
