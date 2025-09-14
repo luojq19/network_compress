@@ -1,5 +1,6 @@
 import sys
 sys.path.append('.')
+import torch
 import numpy as np
 import scipy
 from scipy.sparse.linalg import eigs
@@ -13,6 +14,9 @@ from itertools import combinations
 # suppress RuntimeWarning
 import warnings
 warnings.filterwarnings("ignore", category=RuntimeWarning)
+import line_profiler
+
+LOG2 = np.log(2)
 
 def visualize_network(G, title="Network Graph"):
     # G is a numpy adjacency matrix
@@ -22,6 +26,7 @@ def visualize_network(G, title="Network Graph"):
     plt.title(title)
     plt.savefig('./graph.png', dpi=200)
 
+@line_profiler.profile
 def rate_distortion(G, heuristic, num_pairs, logger):
     N = G.shape[0]
     E = G.sum() / 2
@@ -55,10 +60,6 @@ def rate_distortion(G, heuristic, num_pairs, logger):
         if heuristic == 1:
             # Try combining all pairs:
             pairs = list(combinations(range(n + 1), 2))
-
-            # DEBUG: only use first num_pairs pairs
-            pairs = pairs[:num_pairs]
-
             I = [i for i, j in pairs]
             J = [j for i, j in pairs]
         elif heuristic == 2:
@@ -80,11 +81,14 @@ def rate_distortion(G, heuristic, num_pairs, logger):
             J = J[indices]
         elif heuristic == 5:
             # Pick num_pairs node pairs with largest joint transition probabilities
-            # print(P_joint.shape)
             P_joint_symm = np.triu(P_joint + P_joint.T, 1)
             flat = P_joint_symm.flatten()
             num_candidates = min(num_pairs, np.sum(flat > 0))
-            linear_indices = np.argsort(flat)[-num_candidates:]
+            # linear_indices_ = np.argsort(flat)[-num_candidates:]
+            # linear_indices_ = np.argpartition(flat, -num_candidates)[-num_candidates:]
+            t = torch.from_numpy(flat)
+            vals, idx = torch.topk(t, num_candidates, largest=True, sorted=False)
+            linear_indices = idx.numpy()
             I, J = np.unravel_index(linear_indices, P_joint_symm.shape)
         elif heuristic == 6:
             diag_p_joint = np.diag(P_joint)
@@ -101,8 +105,12 @@ def rate_distortion(G, heuristic, num_pairs, logger):
             stationary_state_temp = np.triu(score_matrix, k=1)
             flat = stationary_state_temp.flatten()
             num_candidates = min(num_pairs, comb(n + 1, 2, exact=True))
+            # linear_indices_ = np.argsort(flat)[-num_candidates:]
+            linear_indices = np.argpartition(flat, -num_candidates)[-num_candidates:]
+            # t = torch.from_numpy(flat)
+            # vals, idx = torch.topk(t, num_candidates, largest=True, sorted=False)
+            # linear_indices = idx.numpy()
 
-            linear_indices = np.argsort(flat)[-num_candidates:]
             I, J = np.unravel_index(linear_indices, stationary_state_temp.shape)
         else:
             raise NotImplementedError(f'Unknown heuristic: {heuristic}')
@@ -113,20 +121,51 @@ def rate_distortion(G, heuristic, num_pairs, logger):
         for k in range(num_selected_pairs):
             i, j = I[k], J[k]
             n_old = transition_prob_old.shape[0]
-            all_inds = np.arange(n_old)
-            inds_not_ij = np.delete(all_inds, [i, j])
+
+            # all_inds = np.arange(n_old)
+            # inds_not_ij_ = np.delete(all_inds, [i, j])
+            inds_not_ij = np.concatenate((np.arange(i), np.arange(i+1, j), np.arange(j+1, n_old)))
+
             p_ss_merged_prob = stationary_state_old[i] + stationary_state_old[j]
-            p_ss_temp = np.append(stationary_state_old[inds_not_ij], p_ss_merged_prob)
+
+            # p_ss_temp_ = np.append(stationary_state_old[inds_not_ij], p_ss_merged_prob)
+            # p_ss_temp_ = np.concatenate((stationary_state_old[inds_not_ij], np.atleast_1d(p_ss_merged_prob)))
+            m = len(inds_not_ij)
+            out = np.empty(m + 1, dtype=stationary_state_old.dtype)
+            out[:m] = stationary_state_old[inds_not_ij]
+            out[m] = p_ss_merged_prob
+            p_ss_temp = out
+
             p_ss_unmerged = stationary_state_old[inds_not_ij]
-            P_to_ij = transition_prob_old[np.ix_(inds_not_ij, [i, j])]
-            numerator_1 = np.sum(p_ss_unmerged[:, np.newaxis] * P_to_ij, axis=1)
+
+            # P_to_ij_ = transition_prob_old[np.ix_(inds_not_ij, [i, j])]
+            out = np.empty((len(inds_not_ij), 2), dtype=transition_prob_old.dtype)
+            out[:, 0] = transition_prob_old[inds_not_ij, i]
+            out[:, 1] = transition_prob_old[inds_not_ij, j]
+            P_to_ij = out
+
+            # numerator_1_ = np.sum(p_ss_unmerged[:, np.newaxis] * P_to_ij, axis=1)
+            numerator_1 = p_ss_unmerged * (P_to_ij[:, 0] + P_to_ij[:, 1])
+
             denominator_1 = p_ss_temp[:-1]
             P_temp_1 = numerator_1 / denominator_1
             numerator_2 = stationary_state_old[i] * transition_prob_old[i, inds_not_ij] + stationary_state_old[j] * transition_prob_old[j, inds_not_ij]
             P_temp_2 = numerator_2 / p_ss_merged_prob
-            submatrix = transition_prob_old[np.ix_([i, j], [i, j])]
-            p_ss_sub = stationary_state_old[[i, j]]
-            numerator_3 = np.sum(p_ss_sub[:, np.newaxis] * submatrix)
+
+            # submatrix_ = transition_prob_old[np.ix_([i, j], [i, j])]
+            submatrix = np.empty((2, 2), dtype=transition_prob_old.dtype)
+            submatrix[0, 0] = transition_prob_old[i, i]
+            submatrix[0, 1] = transition_prob_old[i, j]
+            submatrix[1, 0] = transition_prob_old[j, i]
+            submatrix[1, 1] = transition_prob_old[j, j]
+
+            # p_ss_sub = stationary_state_old[[i, j]]
+            # numerator_3_ = np.sum(p_ss_sub[:, np.newaxis] * submatrix)
+            numerator_3 = (
+                stationary_state_old[i] * (submatrix[0,0] + submatrix[0,1]) +
+                stationary_state_old[j] * (submatrix[1,0] + submatrix[1,1])
+            )
+
             P_temp_3 = numerator_3 / p_ss_merged_prob
 
             logP_temp_1 = np.log2(P_temp_1)
@@ -137,12 +176,12 @@ def rate_distortion(G, heuristic, num_pairs, logger):
             logP_temp_2[np.isinf(logP_temp_2)] = 0
             logP_temp_2[np.isnan(logP_temp_2)] = 0
             logP_temp_3 = np.log2(P_temp_3)
-            logP_temp_3 = 0 if np.isinf(logP_temp_3) else logP_temp_3
-            logP_temp_3 = 0 if np.isnan(logP_temp_3) else logP_temp_3
+            logP_temp_3 = 0 if np.isinf(logP_temp_3) or np.isnan(logP_temp_3) else logP_temp_3
+            # logP_temp_3 = 0 if np.isnan(logP_temp_3) else logP_temp_3
             # assert there's no inf or nan
-            assert not np.any(np.isnan(logP_temp_1)) and not np.any(np.isinf(logP_temp_1)), f'np.any(np.isnan(logP_temp_1)): {np.any(np.isnan(logP_temp_1))}, np.any(np.isinf(logP_temp_1)): {np.any(np.isinf(logP_temp_1))}\n{P_temp_1}'
-            assert not np.any(np.isnan(logP_temp_2)) and not np.any(np.isinf(logP_temp_2)), f'np.any(np.isnan(logP_temp_2)): {np.any(np.isnan(logP_temp_2))}, np.any(np.isinf(logP_temp_2)): {np.any(np.isinf(logP_temp_2))}\n{P_temp_2}'
-            assert not np.any(np.isnan(logP_temp_3)) and not np.any(np.isinf(logP_temp_3)), f'np.any(np.isnan(logP_temp_3)): {np.any(np.isnan(logP_temp_3))}, np.any(np.isinf(logP_temp_3)): {np.any(np.isinf(logP_temp_3))}\n{P_temp_3}'
+            # assert not np.any(np.isnan(logP_temp_1)) and not np.any(np.isinf(logP_temp_1)), f'np.any(np.isnan(logP_temp_1)): {np.any(np.isnan(logP_temp_1))}, np.any(np.isinf(logP_temp_1)): {np.any(np.isinf(logP_temp_1))}\n{P_temp_1}'
+            # assert not np.any(np.isnan(logP_temp_2)) and not np.any(np.isinf(logP_temp_2)), f'np.any(np.isnan(logP_temp_2)): {np.any(np.isnan(logP_temp_2))}, np.any(np.isinf(logP_temp_2)): {np.any(np.isinf(logP_temp_2))}\n{P_temp_2}'
+            # assert not np.any(np.isnan(logP_temp_3)) and not np.any(np.isinf(logP_temp_3)), f'np.any(np.isnan(logP_temp_3)): {np.any(np.isnan(logP_temp_3))}, np.any(np.isinf(logP_temp_3)): {np.any(np.isinf(logP_temp_3))}\n{P_temp_3}'
 
             i_new_part = (
                 -np.sum(p_ss_temp[:-1] * P_temp_1 * logP_temp_1)
@@ -162,8 +201,6 @@ def rate_distortion(G, heuristic, num_pairs, logger):
             S_temp = rate_old + dS
             selected_entropies.append(S_temp)
         min_entropy = np.min(selected_entropies)
-        # if rate_old < min_entropy:
-        #     print(f'rate_old: {rate_old}, min_entropy: {min_entropy}')
         rate_old = min_entropy
 
         min_indices = np.where(selected_entropies == min_entropy)[0]
@@ -179,6 +216,7 @@ def rate_distortion(G, heuristic, num_pairs, logger):
         stationary_state_old = np.append(stationary_state_old[indices_not_ij], stationary_state_old[i_new] + stationary_state_old[j_new])
         # Top-left block (unmerged to unmerged)
         P_joint_TL = P_joint[np.ix_(indices_not_ij, indices_not_ij)]
+
         # Right block (unmerged to new merged)
         P_joint_R = np.sum(P_joint[np.ix_(indices_not_ij, [i_new, j_new])], axis=1, keepdims=True)
         # Bottom block (new merged to unmerged)
@@ -246,8 +284,9 @@ def get_args():
     parser.add_argument('--heu', type=int, default=7, help='Heuristic value')
     parser.add_argument('--num_pairs', type=int, default=100, help='Number of pairs to consider')
     parser.add_argument('--seed', type=int, default=42, help='Random seed')
-    parser.add_argument('--logdir', type=str, default='logs/logs')
+    parser.add_argument('--logdir', type=str, default='logs/debug')
     parser.add_argument('--tag', type=str, default='')
+    parser.add_argument('--no_timestamp', action='store_true', help='If set, do not append timestamp to logdir')
 
     return parser.parse_args()
 
@@ -256,7 +295,7 @@ def main():
     args = get_args()
     commons.seed_all(args.seed)
 
-    log_dir = commons.get_new_log_dir(root=args.logdir, prefix='rate_distortion_debug', tag=args.tag)
+    log_dir = commons.get_new_log_dir(root=args.logdir, prefix='rate_distortion', tag=args.tag, timestamp=not args.no_timestamp)
     logger = commons.get_logger('rate_distortion_debug', log_dir=log_dir)
     logger.info(f'Args: {args}')
 
@@ -270,6 +309,7 @@ def main():
 
     plot_rate_distortion(rates_upper, rates_lower, save_path=os.path.join(log_dir, 'rate_distortion.png'))
 
+    logger.info(f'Compressibility: {rates_upper[0] - np.mean(rates_upper)}')
     # save the four list into npz file
     np.save(os.path.join(log_dir, 'rates_upper.npy'), rates_upper)
     np.save(os.path.join(log_dir, 'rates_lower.npy'), rates_lower)
