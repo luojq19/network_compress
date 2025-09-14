@@ -263,7 +263,7 @@ def main():
                                                              logger=logger)
 
     plot_rate_distortion(rates_upper, rates_lower, save_path=os.path.join(log_dir, 'rate_distortion.png'))
-
+    logger.info(f'Compressibility: {rates_upper[0] - np.mean(rates_upper)}')
     # save the four list into npz file
     np.save(os.path.join(log_dir, 'rates_upper.npy'), rates_upper)
     np.save(os.path.join(log_dir, 'rates_lower.npy'), rates_lower)
