@@ -2,7 +2,7 @@ import logging
 import os
 import random
 import time
-
+import torch
 import numpy as np
 import yaml
 from easydict import EasyDict
@@ -59,8 +59,14 @@ def get_new_log_dir(root='./logs', prefix='', tag='', timestamp=True):
 # https://discuss.pytorch.org/t/reproducibility-with-all-the-bells-and-whistles/81097
 def seed_all(seed=42):
     print("[ Using Seed : ", seed, " ]")
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.cuda.manual_seed(seed)
     np.random.seed(seed)
     random.seed(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    return None
 
 def sec2min_sec(t):
     mins = int(t) // 60
