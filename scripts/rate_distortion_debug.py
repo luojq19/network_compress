@@ -16,6 +16,14 @@ import warnings
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 import line_profiler
 
+# os.environ.setdefault("OMP_NUM_THREADS", "1")
+# os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
+# os.environ.setdefault("MKL_NUM_THREADS", "1")
+# os.environ.setdefault("MKL_DYNAMIC", "FALSE")
+# os.environ.setdefault("NUMEXPR_NUM_THREADS", "1")
+# os.environ.setdefault("PYTORCH_NUM_THREADS", "1")
+# os.environ.setdefault("PYTHONHASHSEED", "0")  # optional but helpful
+
 LOG2 = np.log(2)
 
 def visualize_network(G, title="Network Graph"):
@@ -26,7 +34,7 @@ def visualize_network(G, title="Network Graph"):
     plt.title(title)
     plt.savefig('./graph.png', dpi=200)
 
-@line_profiler.profile
+
 def rate_distortion(G, heuristic, num_pairs, logger):
     N = G.shape[0]
     E = G.sum() / 2
@@ -37,6 +45,7 @@ def rate_distortion(G, heuristic, num_pairs, logger):
 
     transition_prob_old = G / G.sum(axis=1, keepdims=True)
 
+    # v0 = np.ones(G.shape[0], dtype=G.dtype) / G.shape[0]
     eigenvalues, eigenvectors = eigs(transition_prob_old.T, k=1, which='LR')
     stationary_state = eigenvectors[:, 0].real
     stationary_state /= stationary_state.sum()
@@ -88,6 +97,7 @@ def rate_distortion(G, heuristic, num_pairs, logger):
             # linear_indices_ = np.argpartition(flat, -num_candidates)[-num_candidates:]
             t = torch.from_numpy(flat)
             vals, idx = torch.topk(t, num_candidates, largest=True, sorted=False)
+            # vals, idx = torch.topk(t, num_candidates, largest=True, sorted=True)
             linear_indices = idx.numpy()
             I, J = np.unravel_index(linear_indices, P_joint_symm.shape)
         elif heuristic == 6:
@@ -239,7 +249,7 @@ def rate_distortion(G, heuristic, num_pairs, logger):
         clusters_new = unmerged_clusters + [merged_cluster]
         clusters.append(clusters_new)
         
-        Gs.append(P_joint*2*E)
+        # Gs.append(P_joint*2*E)
 
         # Compute lower bound on mutual information
         unmerged_cols = P_low[:, indices_not_ij]
@@ -275,6 +285,7 @@ def plot_rate_distortion(rates_upper, rates_lower, save_path):
     plt.plot(rates_lower, label='rates_lower', color='orange')
     plt.xlabel('Scale')
     plt.ylabel('Rate')
+    plt.title(f'Compressibility: {rates_upper[0] - np.mean(rates_upper):.4f}')
     plt.legend()
     plt.savefig(save_path, dpi=200)
 
